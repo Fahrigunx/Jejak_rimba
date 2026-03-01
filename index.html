@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hunting RPG: Jejak Rimba</title>
+    <style>
+        body { font-family: 'Courier New', Courier, monospace; background: #1a1a1a; color: #00ff00; display: flex; justify-content: center; padding: 20px; font-size: 14px;}
+        #game-container { width: 100%; max-width: 700px; border: 2px solid #333; padding: 20px; background: #000; box-shadow: 0 0 20px rgba(0,255,0,0.2); position: relative;}
+        
+        #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; }
+        #overlay input { padding: 10px; font-size: 16px; margin-bottom: 10px; background: #222; color: #00ff00; border: 1px solid #00ff00; text-align: center; }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px; font-size: 0.9em; color: #00d4ff; text-align: center;}
+        .time-panel { text-align: center; color: #ffff00; font-weight: bold; padding: 5px; border-bottom: 1px solid #333; margin-bottom: 10px; }
+        
+        #log { height: 250px; overflow-y: auto; border: 1px solid #222; padding: 10px; margin-bottom: 15px; background: #050505; font-size: 0.95em; line-height: 1.5; }
+        .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .inv-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        .inv-box { border: 1px solid #444; padding: 10px; height: 150px; overflow-y: auto; }
+        
+        button { background: #222; color: #fff; border: 1px solid #444; padding: 10px; cursor: pointer; font-family: inherit; transition: 0.2s;}
+        button:hover { background: #00ff00; color: #000; }
+        button:disabled { color: #444; border-color: #222; cursor: not-allowed; background: #111; }
+        button.danger { border-color: #ff0000; color: #ff0000; }
+        button.danger:hover { background: #ff0000; color: #fff; }
+        
+        .highlight { color: #ffff00; }
+        .rare { color: #ff00ff; font-weight: bold; }
+        .danger-text { color: #ff0000; font-weight: bold; }
+        .success-text { color: #00ff00; }
+        hr { border: 0; border-top: 1px solid #333; margin: 10px 0; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="overlay">
+        <h2 style="color: #00ff00;">Selamat Datang di Jejak Rimba</h2>
+        <p>Masukkan nama pemburu Anda:</p>
+        <input type="text" id="playerNameInput" placeholder="Nama Pemburu" autocomplete="off">
+        <button onclick="startGame()">Mulai Petualangan</button>
+    </div>
+
+    <h2 style="text-align: center; color: #00ff00; margin-top: 0;">🏹 HUNTING RPG</h2>
+    
+    <div class="time-panel" id="timeDisplay">Waktu: Memuat...</div>
+
+    <div class="stats-grid">
+        <div>👤: <span id="playerNameDisplay">-</span></div>
+        <div>💰: <span id="money">0</span></div>
+        <div>❤️: <span id="health">100</span>/100</div>
+        <div>🔋: <span id="energy">100</span>%</div>
+        <div>⚔️: <span id="equippedTool">Tombak Kayu</span></div>
+        <div>🥇<span id="gold">0</span> 🥈<span id="silver">0</span> 🥉<span id="bronze">0</span></div>
+    </div>
+
+    <div id="log"></div>
+
+    <div id="action-area" class="buttons"></div>
+    <div id="inventory-area" class="inv-container hidden">
+        <div class="inv-box">
+            <h4 style="margin:0 0 10px 0; text-align:center; color:#fff;">🎒 Alat & Konsumsi</h4>
+            <div id="inv-tools"></div>
+        </div>
+        <div class="inv-box">
+            <h4 style="margin:0 0 10px 0; text-align:center; color:#fff;">🍖 Hasil Buruan</h4>
+            <div id="inv-animals"></div>
+        </div>
+    </div>
+</div>
+
+<audio id="bgMusic" src="1.m4a" loop></audio>
+<audio id="moveAudio" src="2.m4a"></audio>
+<audio id="shootAudio" src="3.m4a"></audio>
+<audio id="tradeAudio" src="4.m4a"></audio>
+<audio id="eatAudio" src="5.m4a"></audio>
+
+<script>
+// --- KONFIGURASI MATA UANG ---
+function formatRP(amount) {
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount);
+}
+
+// --- FUNGSI AUDIO ---
+function playSound(id) {
+    const audio = document.getElementById(id);
+    if (audio) {
+        audio.currentTime = 0;
+        audio.play().catch(e => console.log("Audio terblokir oleh browser sebelum ada interaksi:", e));
+    }
+}
+
+// --- FUNGSI AMBIL DATA JSON ---
+async function getAnimalData(lokasi) {
+    try {
+        const response = await fetch(`${lokasi}.json`);
+        if (!response.ok) throw new Error("File tidak ditemukan");
+        return await response.json();
+    } catch (error) {
+        log(`Gagal memuat data hewan dari ${lokasi}.json!`, "danger-text");
+        return [];
+    }
+}
+
+// --- DATA TOKO ---
+const shopItems = {
+    tools: [
+        { id: "t_1", name: "Tombak Kayu", type: "tool", power: 10, price: 20000000 },
+        { id: "t_2", name: "Panah Kayu", type: "tool", power: 25, price: 50000000 },
+        { id: "t_3", name: "Senapan Angin", type: "tool", power: 50, price: 100000000 },
+        { id: "t_4", name: "Senapan Berburu", type: "tool", power: 75, price: 150000000 },
+        { id: "t_5", name: "Sniper Mistis", type: "tool", power: 100, price: 200000000 }
+    ],
+    consumables: [
+        { id: "c_1", name: "Air Mineral", type: "energy", value: 20, price: 100000 },
+        { id: "c_2", name: "Nasi Bungkus", type: "energy", value: 50, price: 300000 },
+        { id: "c_3", name: "Kopi Hitam", type: "energy", value: 100, price: 500000 },
+        { id: "c_4", name: "Perban", type: "health", value: 30, price: 400000 },
+        { id: "c_5", name: "P3K Medis", type: "health", value: 100, price: 500000 }
+    ]
+};
+
+const npcNames = ["Budi", "Siti", "Agus", "Rina", "Joko", "Dewi", "Tono", "Wati", "Asep", "Lina"];
+
+// --- STATE GAME ---
+let player = {
+    name: "",
+    money: 100000,
+    energy: 100,
+    health: 100,
+    medals: { gold: 0, silver: 0, bronze: 0 },
+    inventory: { tools: [], animals: [] },
+    equippedTool: shopItems.tools[0],
+    location: 'town'
+};
+
+let timeData = { month: 1, dayOfMonth: 1, dayOfWeek: 0, hour: 6, minute: 0 };
+const dayNames = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
+const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+let currentEncounter = null;
+let isAggro = false;
+let tournamentActive = false;
+let npcScores = [];
+
+// --- SISTEM AUTO-REFILL ENERGI TURNAMEN ---
+function autoRefillEnergy() {
+    if (player.location === 'turnamen' && tournamentActive && player.energy < 20) {
+        let foodIndex = player.inventory.tools.findIndex(t => t.type === 'energy');
+        if (foodIndex !== -1) {
+            let item = player.inventory.tools[foodIndex];
+            player.energy = Math.min(100, player.energy + item.value);
+            player.inventory.tools.splice(foodIndex, 1);
+            log(`⚡ [Otomatis] Mengonsumsi ${item.name} untuk memulihkan energi di Turnamen!`, "success-text");
+            playSound('eatAudio');
+            updateUI();
+        }
+    }
+}
+
+// --- SISTEM SAVE & LOAD ---
+function saveGame() {
+    const saveData = {
+        player: player,
+        timeData: timeData
+    };
+    localStorage.setItem('jejakRimbaSave', JSON.stringify(saveData));
+}
+
+function loadGame() {
+    const saved = localStorage.getItem('jejakRimbaSave');
+    if (saved) {
+        const parsed = JSON.parse(saved);
+        player = parsed.player;
+        timeData = parsed.timeData;
+        return true;
+    }
+    return false;
+}
+
+window.onload = () => {
+    if (loadGame()) {
+        document.getElementById('overlay').classList.add('hidden');
+        log(`Selamat datang kembali, Pemburu <b>${player.name}</b>!`, 'success-text');
+        
+        // Coba mainkan musik latar (terkadang diblokir browser jika belum ada interaksi baru)
+        const bg = document.getElementById('bgMusic');
+        if(bg) bg.play().catch(e => console.log("Klik di mana saja untuk memulai musik latar"));
+        
+        updateUI();
+        setInterval(tickTime, 500);
+    }
+};
+
+// --- CORE FUNCTIONS ---
+function startGame() {
+    const nameInput = document.getElementById('playerNameInput').value.trim();
+    if (nameInput === "") {
+        alert("Nama tidak boleh kosong!");
+        return;
+    }
+    player.name = nameInput;
+    document.getElementById('overlay').classList.add('hidden');
+    clearLog();
+    log(`Selamat datang, Pemburu <b>${player.name}</b>!`, 'success-text');
+    
+    if (player.inventory.tools.length === 0) {
+        player.inventory.tools.push(shopItems.tools[0]);
+    }
+    
+    // Putar musik latar
+    const bg = document.getElementById('bgMusic');
+    if(bg) {
+        bg.volume = 0.5; // Sesuaikan volume jika dirasa terlalu keras
+        bg.play().catch(e => console.log(e));
+    }
+
+    updateUI();
+    setInterval(tickTime, 500); 
+}
+
+function clearLog() {
+    document.getElementById('log').innerHTML = '';
+}
+
+function log(msg, type = '') {
+    const logDiv = document.getElementById('log');
+    logDiv.innerHTML += `<div class="${type}">${msg}</div>`;
+    logDiv.scrollTop = logDiv.scrollHeight;
+}
+
+function updateUI() {
+    document.getElementById('playerNameDisplay').innerText = player.name;
+    document.getElementById('money').innerText = formatRP(player.money);
+    document.getElementById('energy').innerText = player.energy;
+    document.getElementById('health').innerText = player.health;
+    document.getElementById('equippedTool').innerText = player.equippedTool.name;
+    document.getElementById('gold').innerText = player.medals.gold;
+    document.getElementById('silver').innerText = player.medals.silver;
+    document.getElementById('bronze').innerText = player.medals.bronze;
+    renderButtons();
+    saveGame(); 
+}
+
+function tickTime() {
+    timeData.minute += 2;
+    if (timeData.minute >= 60) {
+        timeData.minute = 0;
+        timeData.hour += 1;
+        checkTournamentLogic();
+    }
+    if (timeData.hour >= 24) {
+        timeData.hour = 0;
+        timeData.dayOfWeek = (timeData.dayOfWeek + 1) % 7;
+        timeData.dayOfMonth += 1;
+    }
+    if (timeData.dayOfMonth > 30) {
+        timeData.dayOfMonth = 1;
+        timeData.month += 1;
+    }
+    if (timeData.month > 12) timeData.month = 1;
+
+    let h = timeData.hour.toString().padStart(2, '0');
+    let m = timeData.minute.toString().padStart(2, '0');
+    document.getElementById('timeDisplay').innerText = `${dayNames[timeData.dayOfWeek]}, ${timeData.dayOfMonth} ${monthNames[timeData.month - 1]} | ${h}:${m}`;
+    saveGame(); 
+}
+
+function isTournamentTime() {
+    if (timeData.dayOfWeek === 6 && timeData.hour >= 18) return true;
+    if (timeData.dayOfWeek === 0 && timeData.hour < 5) return true;
+    return false;
+}
+
+function checkTournamentLogic() {
+    let isTime = isTournamentTime();
+    if (isTime && !tournamentActive) {
+        tournamentActive = true;
+        npcScores = [];
+        let shuffled = [...npcNames].sort(() => 0.5 - Math.random());
+        for(let i=0; i<5; i++) npcScores.push({ name: shuffled[i], score: 0 });
+        if (player.location === 'town') log("📢 Turnamen dibuka! Pergi ke Hutan Turnamen!", "highlight");
+    } 
+    else if (!isTime && tournamentActive) {
+        tournamentActive = false;
+        if (player.location === 'turnamen') changeLocation('town');
+        processTournamentResults();
+    }
+
+    if (tournamentActive) {
+        npcScores.forEach(npc => {
+            if (Math.random() < 0.3) npc.score += Math.floor(Math.random() * 500000) + 100000;
+        });
+    }
+}
+
+function processTournamentResults() {
+    let playerPoin = 0;
+    player.inventory.animals.forEach(a => { if (a.fromTournament) playerPoin += a.price; });
+    let standings = [...npcScores, { name: player.name, score: playerPoin }].sort((a, b) => b.score - a.score);
+
+    log(`🏆 <b>HASIL TURNAMEN</b> 🏆`, "highlight");
+    for(let i=0; i<3; i++) log(`Juara ${i+1}: ${standings[i].name} (${formatRP(standings[i].score)})`);
+
+    let rank = standings.findIndex(s => s.name === player.name) + 1;
+    if (rank === 1) { player.medals.gold++; log("Juara 1! Medali Emas!", "success-text"); }
+    else if (rank === 2) { player.medals.silver++; log("Juara 2! Medali Perak!", "highlight"); }
+    else if (rank === 3) { player.medals.bronze++; log("Juara 3! Medali Perunggu!"); }
+    
+    player.inventory.animals.forEach(a => delete a.fromTournament);
+    updateUI();
+}
+
+function changeLocation(loc) {
+    if (player.location !== loc) clearLog();
+    player.location = loc;
+    currentEncounter = null;
+    isAggro = false;
+    document.getElementById('inventory-area').classList.add('hidden');
+    
+    if (loc === 'misterius' && player.equippedTool.id !== "t_5") {
+        log("⚠️ Butuh Sniper Mistis untuk masuk ke Hutan Misterius!", "danger-text");
+        player.location = 'town';
+    }
+    
+    if (loc === 'turnamen') {
+        if (!isTournamentTime()) {
+            log("❌ Turnamen Tutup!", "danger-text");
+            player.location = 'town';
+        } else if (player.money < 100000) {
+            log("❌ Uang kurang untuk pendaftaran (Rp 100.000).", "danger-text");
+            player.location = 'town';
+        } else {
+            player.money -= 100000;
+            log("Mendaftar turnamen Rp 100.000.", "highlight");
+        }
+    }
+    updateUI();
+}
+
+function renderButtons() {
+    const area = document.getElementById('action-area');
+    area.innerHTML = '';
+    document.getElementById('inventory-area').classList.add('hidden');
+
+    if (player.health <= 0) {
+        player.health = 50; player.energy = 50; player.location = 'town';
+        log("💀 Anda pingsan karena kehabisan darah!", "danger-text");
+    }
+
+    switch(player.location) {
+        case 'town':
+            createBtn("Ke Kebun", () => changeLocation('kebun'));
+            createBtn("Ke Hutan Belantara", () => changeLocation('belantara'));
+            createBtn("Ke Hutan Misterius", () => changeLocation('misterius'));
+            createBtn("Ke Hutan Turnamen", () => changeLocation('turnamen'));
+            createBtn("🏪 Toko", () => changeLocation('shop'));
+            createBtn("🎒 Inventori", () => changeLocation('inv'));
+            break;
+        case 'shop':
+            renderShop();
+            break;
+        case 'inv':
+            document.getElementById('inventory-area').classList.remove('hidden');
+            createBtn("Tutup Inventori", () => changeLocation('town'));
+            renderInventoryLogic();
+            break;
+        case 'kebun': case 'belantara': case 'misterius': case 'turnamen':
+            renderHunting();
+            break;
+    }
+}
+
+function createBtn(text, func, extraClass = '') {
+    const btn = document.createElement('button');
+    btn.innerHTML = text;
+    if (extraClass) btn.className = extraClass;
+    btn.onclick = func;
+    document.getElementById('action-area').appendChild(btn);
+}
+
+function renderShop() {
+    log("<b>Toko Perlengkapan</b>");
+    shopItems.tools.forEach(item => {
+        let owned = player.inventory.tools.find(t => t.id === item.id);
+        let btn = document.createElement('button');
+        btn.innerText = owned ? `Milik: ${item.name}` : `Beli ${item.name} (${formatRP(item.price)})`;
+        if (owned) btn.disabled = true;
+        btn.onclick = () => buyItem(item);
+        document.getElementById('action-area').appendChild(btn);
+    });
+    shopItems.consumables.forEach(item => {
+        let btn = document.createElement('button');
+        btn.innerText = `Beli ${item.name} (${formatRP(item.price)})`;
+        btn.onclick = () => buyItem(item);
+        document.getElementById('action-area').appendChild(btn);
+    });
+    createBtn("Kembali", () => changeLocation('town'));
+}
+
+function buyItem(item) {
+    if (player.money >= item.price) {
+        player.money -= item.price;
+        player.inventory.tools.push(item);
+        log(`Beli ${item.name} Berhasil!`, 'success-text');
+        playSound('tradeAudio'); // Audio jual beli
+        updateUI();
+    } else { log("Uang tidak cukup!", "danger-text"); }
+}
+
+function renderInventoryLogic() {
+    const divTools = document.getElementById('inv-tools');
+    const divAnimals = document.getElementById('inv-animals');
+    divTools.innerHTML = ''; divAnimals.innerHTML = '';
+
+    player.inventory.tools.forEach((item, index) => {
+        let el = document.createElement('div');
+        el.style.marginBottom = "5px";
+        let action = item.type === 'tool' ? `equipTool(${index})` : `useConsumable(${index})`;
+        let label = item.type === 'tool' ? 'Pakai' : 'Gunakan';
+        el.innerHTML = `<span>${item.name}</span> <button style="padding:2px 5px" onclick="${action}">${label}</button>`;
+        divTools.appendChild(el);
+    });
+
+    if (player.inventory.animals.length > 0) {
+        let b = document.createElement('button'); b.innerText = "Jual Semua"; b.className = "danger";
+        b.style.width="100%"; b.onclick = sellAllAnimals; divAnimals.appendChild(b);
+        
+        let groupedAnimals = {};
+        player.inventory.animals.forEach(a => {
+            if (groupedAnimals[a.name]) {
+                groupedAnimals[a.name].count++;
+            } else {
+                groupedAnimals[a.name] = { ...a, count: 1 };
+            }
+        });
+
+        Object.values(groupedAnimals).forEach((animal) => {
+            let el = document.createElement('div');
+            el.style.marginTop = "5px";
+            el.innerHTML = `<span style="font-size:10px">${animal.name} (x${animal.count})</span> <button style="padding:2px; margin-left: 5px;" onclick="sellAnimalByName('${animal.name}')">Jual 1</button>`;
+            divAnimals.appendChild(el);
+        });
+    }
+}
+
+function equipTool(idx) { 
+    player.equippedTool = player.inventory.tools[idx]; 
+    log(`Pakai ${player.equippedTool.name}`); 
+    updateUI(); 
+}
+
+function useConsumable(idx) {
+    let item = player.inventory.tools[idx];
+    if (item.type === 'energy') player.energy = Math.min(100, player.energy + item.value);
+    else player.health = Math.min(100, player.health + item.value);
+    player.inventory.tools.splice(idx, 1); 
+    playSound('eatAudio'); // Audio makan/minum
+    updateUI();
+}
+
+function sellAnimalByName(animalName) {
+    let idx = player.inventory.animals.findIndex(a => a.name === animalName);
+    if (idx > -1) {
+        let price = player.inventory.animals[idx].price;
+        player.money += price;
+        player.inventory.animals.splice(idx, 1);
+        log(`Berhasil menjual 1x ${animalName} seharga ${formatRP(price)}!`, "success-text");
+        playSound('tradeAudio'); // Audio jual beli
+        updateUI();
+    }
+}
+
+function sellAllAnimals() {
+    let total = 0; 
+    player.inventory.animals.forEach(a => total += a.price);
+    if (total > 0) {
+        player.money += total; 
+        player.inventory.animals = []; 
+        log(`Berhasil menjual semua hewan seharga ${formatRP(total)}!`, "success-text");
+        playSound('tradeAudio'); // Audio jual beli
+        updateUI();
+    }
+}
+
+async function stepWalk() {
+    autoRefillEnergy(); // Cek isi energi otomatis jika di turnamen
+    
+    if (player.energy < 5) return log("Energi Habis!", "danger-text");
+    
+    playSound('moveAudio'); // Audio jalan
+    player.energy -= 5;
+    
+    if (Math.random() < 0.4) { log("Tidak ada apa-apa di sini..."); } 
+    else {
+        let pool = await getAnimalData(player.location);
+        if (pool.length > 0) {
+            currentEncounter = {...pool[Math.floor(Math.random() * pool.length)]};
+            if (player.location === 'turnamen') currentEncounter.fromTournament = true;
+            log(`Bertemu <b class="rare">${currentEncounter.name}</b>!`, "highlight");
+        }
+    }
+    updateUI();
+}
+
+function shootAnimal() {
+    playSound('shootAudio'); // Audio membidik/menembak
+    
+    let chance = (player.equippedTool.power * 0.5) + (100 - currentEncounter.diff);
+    if (Math.random() * 100 <= Math.min(95, Math.max(5, chance))) {
+        player.inventory.animals.push(currentEncounter);
+        log(`Berhasil menangkap ${currentEncounter.name}!`, "success-text");
+        currentEncounter = null;
+    } else {
+        log(`Meleset!`);
+        
+        if (Math.random() < 0.4) { 
+            let hpDmg = Math.floor(currentEncounter.diff * 0.2) + 5;
+            let enDmg = 10;
+            player.health = Math.max(0, player.health - hpDmg);
+            player.energy = Math.max(0, player.energy - enDmg);
+            log(`⚠️ ${currentEncounter.name} MENYERANG BALIK! Darah -${hpDmg}, Energi -${enDmg}`, "danger-text");
+            
+            if (currentEncounter.diff >= 60) {
+                isAggro = true; 
+            } else {
+                currentEncounter = null; 
+            }
+        } else {
+            if (currentEncounter.diff >= 70 && Math.random() < 0.6) {
+                log(`⚠️ ${currentEncounter.name} MENGEJAR ANDA!`, "danger-text");
+                isAggro = true;
+            } else {
+                log(`${currentEncounter.name} melarikan diri.`);
+                currentEncounter = null;
+            }
+        }
+    }
+    updateUI();
+}
+
+function runAway() {
+    autoRefillEnergy(); // Cek isi energi otomatis saat lari jika di turnamen
+    
+    playSound('moveAudio'); // Audio berlari/dikejar
+    
+    if (player.energy < 20) {
+        player.health = Math.max(0, player.health - 20); 
+        log("Gagal lari, terkena serangan brutal!", "danger-text");
+    } else {
+        player.energy -= 20; 
+        log("Berhasil kabur dari kejaran hewan!");
+    }
+    isAggro = false; currentEncounter = null; updateUI();
+}
+
+function renderHunting() {
+    if (isAggro) return createBtn("🏃 LARI! (-20 Energi)", runAway, 'danger');
+    if (currentEncounter) {
+        createBtn("🎯 Bidik", shootAnimal);
+        createBtn("Lewati", () => { currentEncounter = null; updateUI(); });
+    } else {
+        createBtn("👣 Jalan (-5 Energi)", stepWalk);
+        createBtn("Kembali", () => changeLocation('town'));
+    }
+}
+</script>
+</body>
+</html>

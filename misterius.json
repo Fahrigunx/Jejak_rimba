@@ -1,0 +1,22 @@
+[
+  { "name": "Kancil Bermahkota", "price": 3000000, "diff": 70 },
+  { "name": "Kura-kura Kristal", "price": 3500000, "diff": 72 },
+  { "name": "Burung Cenderawasih Perak", "price": 4000000, "diff": 75 },
+  { "name": "Rusa Tanduk Cahaya", "price": 4500000, "diff": 78 },
+  { "name": "Ular Naga Tanah", "price": 5000000, "diff": 80 },
+  { "name": "Kucing Hutan Indigo", "price": 5500000, "diff": 82 },
+  { "name": "Serigala Bulu Rembulan", "price": 6000000, "diff": 84 },
+  { "name": "Babi Hutan Taring Emas", "price": 7000000, "diff": 86 },
+  { "name": "Elang Sayap Petir", "price": 8500000, "diff": 88 },
+  { "name": "Kera Putih Abadi", "price": 10000000, "diff": 90 },
+  { "name": "Harimau Loreng Api", "price": 10500000, "diff": 92 },
+  { "name": "Badak Lapis Baja", "price": 5000000, "diff": 93 },
+  { "name": "Gajah Gading Hitam", "price": 8000000, "diff": 94 },
+  { "name": "Phoenix Kecil", "price": 5000000, "diff": 95 },
+  { "name": "Naga Komodo Mistis", "price": 5000000, "diff": 96 },
+  { "name": "Singa Berambut Api", "price": 5000000, "diff": 97 },
+  { "name": "Unicorn Rimba", "price": 6000000, "diff": 98 },
+  { "name": "Kirin Penjaga", "price": 8000000, "diff": 98 },
+  { "name": "Naga Hijau Zamrud", "price": 10000000, "diff": 99 },
+  { "name": "Liong Langit", "price": 16000000, "diff": 99 }
+]

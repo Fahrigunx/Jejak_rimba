@@ -1,0 +1,22 @@
+[
+  { "name": "Burung Puyuh Hutan", "price": 100000, "diff": 25 },
+  { "name": "Ayam Hutan Merah", "price": 120000, "diff": 30 },
+  { "name": "Kancil", "price": 250000, "diff": 40 },
+  { "name": "Monyet Ekor Panjang", "price": 780000, "diff": 42 },
+  { "name": "Burung Rangkong", "price": 350000, "diff": 50 },
+  { "name": "Babi Hutan", "price": 400000, "diff": 55 },
+  { "name": "Owa Jawa", "price": 450000, "diff": 58 },
+  { "name": "Kijang Sumatra", "price": 5500000, "diff": 62 },
+  { "name": "Elang Jawa", "price": 600000, "diff": 65 },
+  { "name": "Rusa Totol", "price": 6500000, "diff": 68 },
+  { "name": "Anjing Hutan (Ajag)", "price": 700000, "diff": 70 },
+  { "name": "Ular Sanca Kembang", "price": 850000, "diff": 72 },
+  { "name": "Kucing Hutan", "price": 900000, "diff": 75 },
+  { "name": "Lutung Hitam", "price": 5000000, "diff": 78 },
+  { "name": "Beruang Madu", "price": 4500000, "diff": 82 },
+  { "name": "Macan Tutul", "price": 6500000, "diff": 85 },
+  { "name": "Orangutan", "price": 6000000, "diff": 88 },
+  { "name": "Tapir", "price": 3500000, "diff": 90 },
+  { "name": "Badak Bercula Satu", "price": 5000000, "diff": 93 },
+  { "name": "Harimau Sumatra", "price": 7500000, "diff": 95 }
+]

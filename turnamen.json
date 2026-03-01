@@ -1,0 +1,22 @@
+[
+  { "name": "Ayam Bulu Pelangi", "price": 500000, "diff": 40 },
+  { "name": "Bebek Emas", "price": 750000, "diff": 45 },
+  { "name": "Kelinci Lari Cepat", "price": 1000000, "diff": 50 },
+  { "name": "Musang Pencuri", "price": 1200000, "diff": 52 },
+  { "name": "Burung Merpati Pos", "price": 15000000, "diff": 55 },
+  { "name": "Tupai Ekor Merah", "price": 1800000, "diff": 58 },
+  { "name": "Babi Hutan Berduri", "price": 2200000, "diff": 60 },
+  { "name": "Rusa Kristal", "price": 3000000, "diff": 65 },
+  { "name": "Kancil Cerdik", "price": 3500000, "diff": 68 },
+  { "name": "Burung Nuri Bicara", "price": 4200000, "diff": 70 },
+  { "name": "Monyet Petarung", "price": 5000000, "diff": 72 },
+  { "name": "Elang Mata Tajam", "price": 6500000, "diff": 75 },
+  { "name": "Ular Beludru", "price": 8000000, "diff": 78 },
+  { "name": "Beruang Petarung", "price": 10000000, "diff": 80 },
+  { "name": "Macan Hitam Turnamen", "price": 15000000, "diff": 83 },
+  { "name": "Badak Cula Perak", "price": 16000000, "diff": 85 },
+  { "name": "Harimau Juara", "price": 15000000, "diff": 88 },
+  { "name": "Banteng Amuk", "price": 17000000, "diff": 90 },
+  { "name": "Naga Kecil Turnamen", "price": 20000000, "diff": 93 },
+  { "name": "Sang Juara Rimba (Legenda)", "price": 35000000, "diff": 95 }
+]
