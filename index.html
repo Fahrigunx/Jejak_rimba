@@ -71,7 +71,8 @@
     </div>
 </div>
 
-<audio id="bgMusic" src="1.m4a" loop></audio>
+<audio id="bgMusicGlobal" src="6.m4a" loop></audio>
+<audio id="bgMusicHunt" src="1.m4a" loop></audio>
 <audio id="moveAudio" src="2.m4a"></audio>
 <audio id="shootAudio" src="3.m4a"></audio>
 <audio id="tradeAudio" src="4.m4a"></audio>
@@ -89,6 +90,22 @@ function playSound(id) {
     if (audio) {
         audio.currentTime = 0;
         audio.play().catch(e => console.log("Audio terblokir oleh browser sebelum ada interaksi:", e));
+    }
+}
+
+// Fungsi Mengatur Musik Latar
+function switchMusic(loc) {
+    const bgGlobal = document.getElementById('bgMusicGlobal');
+    const bgHunt = document.getElementById('bgMusicHunt');
+    
+    const huntLocations = ['kebun', 'belantara', 'misterius', 'turnamen'];
+    
+    if (huntLocations.includes(loc)) {
+        if (bgGlobal) bgGlobal.pause();
+        if (bgHunt && bgHunt.paused) bgHunt.play().catch(e => console.log(e));
+    } else {
+        if (bgHunt) bgHunt.pause();
+        if (bgGlobal && bgGlobal.paused) bgGlobal.play().catch(e => console.log(e));
     }
 }
 
@@ -185,9 +202,8 @@ window.onload = () => {
         document.getElementById('overlay').classList.add('hidden');
         log(`Selamat datang kembali, Pemburu <b>${player.name}</b>!`, 'success-text');
         
-        // Coba mainkan musik latar (terkadang diblokir browser jika belum ada interaksi baru)
-        const bg = document.getElementById('bgMusic');
-        if(bg) bg.play().catch(e => console.log("Klik di mana saja untuk memulai musik latar"));
+        // Panggil dan coba putar musik sesuai lokasi saat di-load
+        switchMusic(player.location);
         
         updateUI();
         setInterval(tickTime, 500);
@@ -210,12 +226,8 @@ function startGame() {
         player.inventory.tools.push(shopItems.tools[0]);
     }
     
-    // Putar musik latar
-    const bg = document.getElementById('bgMusic');
-    if(bg) {
-        bg.volume = 0.5; // Sesuaikan volume jika dirasa terlalu keras
-        bg.play().catch(e => console.log(e));
-    }
+    // Putar musik sesuai lokasi pertama
+    switchMusic(player.location);
 
     updateUI();
     setInterval(tickTime, 500); 
@@ -337,6 +349,9 @@ function changeLocation(loc) {
             log("Mendaftar turnamen Rp 100.000.", "highlight");
         }
     }
+    
+    // Ganti musik mengikuti lokasi yang baru
+    switchMusic(player.location);
     updateUI();
 }
 
@@ -348,6 +363,7 @@ function renderButtons() {
     if (player.health <= 0) {
         player.health = 50; player.energy = 50; player.location = 'town';
         log("💀 Anda pingsan karena kehabisan darah!", "danger-text");
+        switchMusic('town'); // Kembalikan musik kalau pingsan dan dikirim ke kota
     }
 
     switch(player.location) {
@@ -415,15 +431,27 @@ function renderInventoryLogic() {
     const divAnimals = document.getElementById('inv-animals');
     divTools.innerHTML = ''; divAnimals.innerHTML = '';
 
-    player.inventory.tools.forEach((item, index) => {
+    // Pengelompokan Alat/Konsumsi (Menyatukan item identik)
+    let groupedTools = {};
+    player.inventory.tools.forEach((item) => {
+        if (groupedTools[item.id]) {
+            groupedTools[item.id].count++;
+        } else {
+            groupedTools[item.id] = { ...item, count: 1 };
+        }
+    });
+
+    Object.values(groupedTools).forEach((item) => {
         let el = document.createElement('div');
         el.style.marginBottom = "5px";
-        let action = item.type === 'tool' ? `equipTool(${index})` : `useConsumable(${index})`;
+        let action = item.type === 'tool' ? `equipTool('${item.id}')` : `useConsumable('${item.id}')`;
         let label = item.type === 'tool' ? 'Pakai' : 'Gunakan';
-        el.innerHTML = `<span>${item.name}</span> <button style="padding:2px 5px" onclick="${action}">${label}</button>`;
+        // Tampilkan nama beserta total tumpukannya
+        el.innerHTML = `<span>${item.name} (x${item.count})</span> <button style="padding:2px 5px" onclick="${action}">${label}</button>`;
         divTools.appendChild(el);
     });
 
+    // Pengelompokan Hewan
     if (player.inventory.animals.length > 0) {
         let b = document.createElement('button'); b.innerText = "Jual Semua"; b.className = "danger";
         b.style.width="100%"; b.onclick = sellAllAnimals; divAnimals.appendChild(b);
@@ -446,19 +474,26 @@ function renderInventoryLogic() {
     }
 }
 
-function equipTool(idx) { 
-    player.equippedTool = player.inventory.tools[idx]; 
-    log(`Pakai ${player.equippedTool.name}`); 
-    updateUI(); 
+// Menggunakan pencarian berdasarkan ID
+function equipTool(itemId) {
+    let item = player.inventory.tools.find(t => t.id === itemId);
+    if (item) {
+        player.equippedTool = item; 
+        log(`Pakai ${player.equippedTool.name}`); 
+        updateUI();
+    }
 }
 
-function useConsumable(idx) {
-    let item = player.inventory.tools[idx];
-    if (item.type === 'energy') player.energy = Math.min(100, player.energy + item.value);
-    else player.health = Math.min(100, player.health + item.value);
-    player.inventory.tools.splice(idx, 1); 
-    playSound('eatAudio'); // Audio makan/minum
-    updateUI();
+function useConsumable(itemId) {
+    let idx = player.inventory.tools.findIndex(t => t.id === itemId);
+    if (idx > -1) {
+        let item = player.inventory.tools[idx];
+        if (item.type === 'energy') player.energy = Math.min(100, player.energy + item.value);
+        else player.health = Math.min(100, player.health + item.value);
+        player.inventory.tools.splice(idx, 1); 
+        playSound('eatAudio'); // Audio makan/minum
+        updateUI();
+    }
 }
 
 function sellAnimalByName(animalName) {
